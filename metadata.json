@@ -1,0 +1,6 @@
+{
+  "name": "AI.DX전기안전 스마트 교육 플랫폼",
+  "description": "동원과학기술대학교(DIST) 산업안전관리과 AI.DX전기안전 교과목 원격 학습 및 실무 진단 스마트 교육 플랫폼",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
