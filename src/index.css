@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  word-break: keep-all;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Print/Export PDF support styles */
+.export-mode {
+  background-color: white !important;
+  color: black !important;
+  font-family: "Noto Sans KR", sans-serif !important;
+  line-height: 1.6 !important;
+  padding: 40px !important;
+  width: 794px !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+  word-break: keep-all !important;
+  overflow: visible !important;
+}
+
+.export-mode * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+  opacity: 1 !important;
+  border-radius: 4px !important;
+}
+
+.export-mode h3 {
+  border-left-width: 5px !important;
+  border-left-color: #ef4444 !important;
+  padding-left: 10px !important;
+}
