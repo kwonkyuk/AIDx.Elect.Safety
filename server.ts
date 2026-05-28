@@ -226,4 +226,9 @@ async function start() {
   });
 }
 
-start();
+// Only run app.listen locally or in traditional containers, not under Vercel Serverless environment
+if (!process.env.VERCEL) {
+  start();
+}
+
+export default app;
