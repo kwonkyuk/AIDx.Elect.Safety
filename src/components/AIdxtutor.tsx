@@ -143,10 +143,15 @@ export function AIdxtutor({ isOpen, setIsOpen }: AIdxtutorProps) {
       setMessages((prev) => [...prev, botMsg]);
     } catch (err: any) {
       console.error(err);
+      const isCustomError = err.message && (err.message.includes("통신 서버") || err.message.includes("AI 튜터"));
+      const errorText = isCustomError 
+        ? err.message 
+        : `이런! 실시간 학사망 통신 상태가 고르지 못하구나. 한 번 더 차분히 물어봐 주겠니? (오류: ${err.message || "연결 불가"})`;
+
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         role: "model",
-        text: `이런! 실시간 학사망 통신 상태가 고르지 못하구나. 한 번 더 차분히 물어봐 주겠니? (오류: ${err.message || "연결 불가"})`,
+        text: errorText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
