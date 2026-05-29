@@ -69,12 +69,16 @@ export function WeekContent({ chapter }: WeekContentProps) {
           message: `교안 내용: [${lectureBlob}]\n이 내용을 대학생 수준에서 기억하기 쉽도록 딱 3줄 요약 문장의 리스트로 정리해다오. 다른 말은 덧붙이지 마라.`
         })
       });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error);
+      }
       const data = await res.json();
       const lines = data.text.split("\n").filter((l: string) => l.trim().length > 0).slice(0, 3);
       setSummary(lines);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setSummary(["요약을 불러오는 데 실패했습니다. 통신 상태를 확인하세요."]);
+      setSummary([err.message || "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!"]);
     } finally {
       setIsSummaryLoading(false);
     }
@@ -91,10 +95,20 @@ export function WeekContent({ chapter }: WeekContentProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scenario: s })
       });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error);
+      }
       const data = await res.json();
       setChecklist(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setChecklist({
+        title: "점검표 기획 오류",
+        items: [
+          err.message || "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!"
+        ]
+      });
     } finally {
       setIsChecklistLoading(false);
     }
@@ -111,10 +125,19 @@ export function WeekContent({ chapter }: WeekContentProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: chapter.title })
       });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error);
+      }
       const data = await res.json();
       setQuiz(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setQuiz({
+        question: "평가 문항 출제 네트워크 장애\n\n" + (err.message || "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!"),
+        answer: "①",
+        explanation: "나중에 다시 문항을 시험해 보거라."
+      });
     } finally {
       setIsQuizLoading(false);
     }
@@ -145,11 +168,15 @@ export function WeekContent({ chapter }: WeekContentProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: base64Image, mimeType })
       });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error);
+      }
       const data = await res.json();
       setVisionAnalysis(data.analysis);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setVisionAnalysis("사진 판독에 오류가 발생했단다. 통신망 상태를 잘 들여다보거라.");
+      setVisionAnalysis(err.message || "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!");
     } finally {
       setIsVisionLoading(false);
     }
