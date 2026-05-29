@@ -31,6 +31,51 @@ function getGenAI() {
   return aiClient;
 }
 
+// Robust auto-retry helper with exponential backoff
+async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 1000): Promise<T> {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      attempt++;
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+      
+      const errorMessage = String(error.message || "").toLowerCase();
+      const errorStatus = error.status ? Number(error.status) : 0;
+      
+      // Determine if error is eligible for retry (5xx, 429, timeouts, rate limits, overloads, high demand)
+      const isRetryable =
+        errorStatus === 503 ||
+        errorStatus === 429 ||
+        errorStatus >= 500 ||
+        errorMessage.includes("503") ||
+        errorMessage.includes("429") ||
+        errorMessage.includes("unavailable") ||
+        errorMessage.includes("demand") ||
+        errorMessage.includes("limit") ||
+        errorMessage.includes("exhausted") ||
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("temporary") ||
+        errorMessage.includes("overloaded") ||
+        errorMessage.includes("fetch");
+
+      if (!isRetryable) {
+        console.log(`Non-retryable error encountered: ${error.message}. Throwing immediately.`);
+        throw error;
+      }
+
+      // Exponential backoff with jitter
+      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 500;
+      console.warn(`[Gemini API] Request failed (Attempt ${attempt}). Retrying in ${Math.round(delay)}ms... Error: ${error.message}`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("Maximum retry attempts exceeded.");
+}
+
 // 1. AI Tutor (Professor Chat bot)
 app.post("/api/tutor", async (req, res) => {
   try {
@@ -57,19 +102,21 @@ app.post("/api/tutor", async (req, res) => {
       parts: [{ text: message }]
     });
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents,
-      config: {
-        systemInstruction,
-        temperature: 0.8,
-      }
+    const response = await callWithRetry(async () => {
+      return await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents,
+        config: {
+          systemInstruction,
+          temperature: 0.8,
+        }
+      });
     });
 
     res.json({ text: response.text });
   } catch (error: any) {
     console.error("Tutor Error:", error);
-    res.status(500).json({ error: error.message || "An error occurred with the AI Tutor." });
+    res.status(503).json({ error: "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!" });
   }
 });
 
@@ -89,28 +136,30 @@ app.post("/api/quiz", async (req, res) => {
       `  "explanation": "해당 단원의 공학적 개념(예: 옴의 법칙, 줄의 법칙, 달지엘 수식 등)을 들어 자세하고 학술적으로 서술한 교수의 해설"\n` +
       `}`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            question: { type: Type.STRING },
-            answer: { type: Type.STRING },
-            explanation: { type: Type.STRING }
-          },
-          required: ["question", "answer", "explanation"]
+    const response = await callWithRetry(async () => {
+      return await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              question: { type: Type.STRING },
+              answer: { type: Type.STRING },
+              explanation: { type: Type.STRING }
+            },
+            required: ["question", "answer", "explanation"]
+          }
         }
-      }
+      });
     });
 
     const text = response.text || "{}";
     res.json(JSON.parse(text));
   } catch (error: any) {
     console.error("Quiz Error:", error);
-    res.status(500).json({ error: error.message || "Quiz generation failed." });
+    res.status(503).json({ error: "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!" });
   }
 });
 
@@ -136,30 +185,32 @@ app.post("/api/checklist", async (req, res) => {
       `  ]\n` +
       `}`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            items: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          },
-          required: ["title", "items"]
+    const response = await callWithRetry(async () => {
+      return await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              items: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              }
+            },
+            required: ["title", "items"]
+          }
         }
-      }
+      });
     });
 
     const text = response.text || "{}";
     res.json(JSON.parse(text));
   } catch (error: any) {
     console.error("Checklist Error:", error);
-    res.status(500).json({ error: error.message || "Failed to generate checklist." });
+    res.status(503).json({ error: "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!" });
   }
 });
 
@@ -188,17 +239,19 @@ app.post("/api/vision", async (req, res) => {
     };
     const textPart = { text: prompt };
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: {
-        parts: [imagePart, textPart]
-      }
+    const response = await callWithRetry(async () => {
+      return await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: {
+          parts: [imagePart, textPart]
+        }
+      });
     });
 
     res.json({ analysis: response.text });
   } catch (error: any) {
     console.error("Vision Error:", error);
-    res.status(500).json({ error: error.message || "Forensic image analysis failed." });
+    res.status(503).json({ error: "AI 튜터 통신 서버가 붐비고 있네요. 잠시(2~3초) 후에 다시 시도해 주세요!" });
   }
 });
 
